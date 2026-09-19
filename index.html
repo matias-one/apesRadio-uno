@@ -1,0 +1,1335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <meta name="description" content="Stream 30,000+ radio stations. Save favorites, build playlists, discover new music.">
+
+  <!-- iOS PWA -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="APES Radio">
+  <link rel="apple-touch-icon" href="apes_radio1.png">
+
+  <link rel="icon" type="image/png" href="apes_radio1.png">
+  <link rel="manifest" href="manifest.json">
+
+  <title>Apes•Radio</title>
+  <style>
+    :root {
+      --bg: #121212;
+      --card-bg: #1e1e1e;
+      --accent: #1db954;
+      --text: #ffffff;
+      --subtext: #b3b3b3;
+      --border: #2a2a2a;
+      --player-h: 140px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { -webkit-text-size-adjust: 100%; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 20px;
+      padding-bottom: calc(var(--player-h) + 32px);
+      -webkit-tap-highlight-color: rgba(29, 185, 84, .18);
+      overflow-x: hidden;
+    }
+
+    [hidden] { display: none !important; }
+
+    /* ---------- Header ---------- */
+    .header-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .apes-radio-logo {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+
+    .header-text { display: flex; align-items: center; gap: 10px; }
+
+    h1 { margin: 0; font-size: 26px; letter-spacing: -0.5px; }
+
+    .version-badge {
+      background: #282828;
+      color: var(--accent);
+      padding: 3px 9px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: bold;
+    }
+
+    #installBtn {
+      margin-left: auto;
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      padding: 8px 14px;
+      font-size: 13px;
+      border-radius: 20px;
+      min-height: 40px;
+    }
+
+    #installBtn:hover { background: rgba(29, 185, 84, .12); opacity: 1; }
+
+    h2 {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+      margin-top: 28px;
+      font-size: 18px;
+    }
+
+    /* ---------- Search ---------- */
+    .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
+
+    input[type="search"], input[type="text"] {
+      flex: 1;
+      min-width: 0;
+      padding: 12px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--card-bg);
+      color: #fff;
+      font-size: 16px; /* 16px prevents iOS zoom-on-focus */
+      font-family: inherit;
+    }
+
+    input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+
+    /* ---------- Buttons ---------- */
+    button {
+      background: var(--accent);
+      color: #000;
+      font-weight: bold;
+      border: none;
+      padding: 11px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background .2s, opacity .2s;
+      font-size: 14px;
+      font-family: inherit;
+      min-height: 44px; /* iOS tap target */
+    }
+
+    button:hover { opacity: .9; }
+    button:disabled { opacity: .35; cursor: not-allowed; }
+
+    .btn-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+
+    .btn-bar button {
+      background: #262626;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 9px 14px;
+      border-radius: 20px;
+    }
+
+    .btn-bar button:hover:not(:disabled) { background: #333; opacity: 1; }
+    .btn-bar button.active { background: var(--accent); color: #000; }
+
+    .btn-danger {
+      background: #dc3545 !important;
+      color: #fff !important;
+      font-size: 12px !important;
+      padding: 7px 11px !important;
+      border-radius: 6px !important;
+      font-weight: 600 !important;
+    }
+
+    .btn-secondary {
+      background: #383838 !important;
+      color: #fff !important;
+      font-size: 12px !important;
+      padding: 7px 11px !important;
+      border-radius: 6px !important;
+      font-weight: 600 !important;
+    }
+
+    .btn-danger:hover, .btn-secondary:hover { opacity: .85; }
+
+    /* ---------- Grid & Cards ---------- */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      border: 1px solid transparent;
+      transition: background .2s, border-color .2s, transform .2s;
+    }
+
+    .card:hover { background: #282828; border-color: #333; transform: translateY(-2px); }
+    .card:focus-within { border-color: var(--accent); }
+
+    /* The play target is a real <button>, so keyboard + SR get it for free.
+       Action buttons live *outside* it as siblings — no nesting. */
+    .card-main {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      background: none;
+      border: 0;
+      padding: 0;
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+      font: inherit;
+      border-radius: 8px;
+      min-height: 48px;
+    }
+
+    .card-main:hover { opacity: 1; }
+    .card-main:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+    .station-logo {
+      width: 46px;
+      height: 46px;
+      border-radius: 8px;
+      object-fit: cover;
+      background: #282828;
+      flex-shrink: 0;
+    }
+
+    .card-info { flex: 1; min-width: 0; display: block; }
+
+    .card-title {
+      display: block;
+      font-weight: 600;
+      font-size: 14px;
+      line-height: 1.3;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-subtitle {
+      display: block;
+      font-size: 12px;
+      color: var(--subtext);
+      margin-top: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 6px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .muted { color: #777; font-size: 13px; }
+
+    /* ---------- Shared station banner ---------- */
+    #sharedSection .card { border-color: rgba(29, 185, 84, .5); }
+
+    /* ---------- Player bar ---------- */
+    .player-bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: rgba(0, 0, 0, .96);
+      -webkit-backdrop-filter: blur(14px);
+      backdrop-filter: blur(14px);
+      border-top: 1px solid var(--border);
+      padding: 12px 18px calc(12px + env(safe-area-inset-bottom));
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      z-index: 100;
+    }
+
+    .now-playing-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 2;
+      min-width: 0;
+    }
+
+    .now-playing-logo {
+      width: 46px; height: 46px;
+      border-radius: 8px;
+      object-fit: cover;
+      background: #222;
+      flex-shrink: 0;
+    }
+
+    .now-playing { flex: 1; min-width: 0; }
+
+    .now-title {
+      font-weight: bold; font-size: 15px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .now-sub {
+      font-size: 12px; color: var(--subtext); margin-top: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    #audioPlayer { flex: 3; height: 40px; min-width: 0; }
+
+    .player-actions { display: flex; gap: 8px; flex: 1.5; justify-content: flex-end; }
+
+    /* ---------- Modals ---------- */
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .8);
+      -webkit-backdrop-filter: blur(4px);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      padding: 20px;
+      overscroll-behavior: contain;
+    }
+
+    .modal-content {
+      background: var(--card-bg);
+      padding: 20px;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 400px;
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+
+    .modal-content h3 { margin: 0 0 12px; }
+    .modal-content h4 {
+      margin: 16px 0 8px;
+      font-size: 14px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 4px;
+    }
+
+    .modal-content label {
+      display: block;
+      font-size: 12px;
+      color: var(--subtext);
+      margin: 12px 0 4px;
+    }
+
+    .modal-content input { width: 100%; }
+
+    .modal-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 18px;
+      flex-wrap: wrap;
+    }
+
+    .modal-buttons button.ghost { background: #444; color: #fff; }
+
+    .install-steps { line-height: 1.6; font-size: 14px; color: var(--subtext); }
+    .install-steps strong { color: #fff; }
+    .install-steps .glyph {
+      display: inline-block;
+      background: #2f2f2f;
+      border-radius: 5px;
+      padding: 1px 7px;
+      color: #fff;
+    }
+
+    /* ---------- Toast ---------- */
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: calc(var(--player-h) + 24px + env(safe-area-inset-bottom));
+      transform: translate(-50%, 12px);
+      background: #2f2f2f;
+      color: #fff;
+      padding: 11px 18px;
+      border-radius: 22px;
+      font-size: 13px;
+      font-weight: 500;
+      box-shadow: 0 6px 24px rgba(0, 0, 0, .5);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .22s, transform .22s;
+      z-index: 2000;
+      max-width: 88vw;
+      text-align: center;
+    }
+
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    /* ---------- Mobile ---------- */
+    @media (max-width: 720px) {
+      body { padding: 14px; padding-bottom: calc(var(--player-h) + 28px); }
+
+      h1 { font-size: 21px; }
+      .apes-radio-logo { width: 40px; height: 40px; }
+      .header-bar { gap: 10px; margin-bottom: 16px; }
+      #installBtn { padding: 7px 12px; font-size: 12px; min-height: 36px; }
+
+      .grid { grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 10px; }
+      .card { padding: 10px; gap: 8px; }
+      .station-logo { width: 40px; height: 40px; }
+      .card-main { gap: 10px; }
+
+      .search-box { flex-direction: column; }
+      .search-box button { width: 100%; }
+
+      /* Two-row player: info + actions, then a full-width scrubber */
+      .player-bar {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        grid-template-areas: "now actions" "audio audio";
+        gap: 8px 10px;
+        padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+      }
+
+      .now-playing-wrapper { grid-area: now; }
+      .player-actions { grid-area: actions; }
+      #audioPlayer { grid-area: audio; width: 100%; height: 34px; }
+
+      .now-playing-logo { width: 40px; height: 40px; }
+      .now-title { font-size: 14px; }
+      .player-actions button { padding: 9px 12px; font-size: 12px; min-height: 40px; }
+
+      .modal { align-items: flex-end; padding: 0; }
+      .modal-content {
+        max-width: 100%;
+        border-radius: 16px 16px 0 0;
+        padding-bottom: calc(20px + env(safe-area-inset-bottom));
+        animation: sheet-up .22s ease-out;
+      }
+
+      @keyframes sheet-up {
+        from { transform: translateY(24px); opacity: .6; }
+        to   { transform: translateY(0); opacity: 1; }
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="header-bar">
+    <img src="apes_radio1.png" class="apes-radio-logo" alt="">
+    <div class="header-text">
+      <h1>APES•RADIO</h1>
+      <span class="version-badge">v1.7</span>
+    </div>
+    <button id="installBtn" hidden>⬇ Install</button>
+  </header>
+
+  <div class="search-box">
+    <input type="search" id="searchInput" placeholder="Search stations by name or genre…"
+           autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search">
+    <button id="searchBtn">Search</button>
+  </div>
+
+  <h2>Explore Modes</h2>
+  <div class="btn-bar" id="modeBar">
+    <button data-mode="discover" title="Play a few stations and we'll learn your taste">For You 🎯</button>
+    <button data-mode="popular">Popular 🔥</button>
+    <button data-mode="trending">Trending 📈</button>
+    <button data-mode="gems">Hidden Gems 💎</button>
+    <button data-mode="new">Recently Added 🆕</button>
+    <button data-mode="lucky">I'm Feeling Lucky 🎲</button>
+  </div>
+  <div class="grid" id="modeResultsGrid"></div>
+
+  <!-- Rendered only when someone opens a shared link -->
+  <section id="sharedSection" hidden>
+    <h2>Shared With You</h2>
+    <div class="grid" id="sharedGrid"></div>
+  </section>
+
+  <section id="searchResultsSection" hidden>
+    <h2>Search Results</h2>
+    <div class="grid" id="searchResultsGrid"></div>
+  </section>
+
+  <h2>My Favorites (Starter)</h2>
+  <div class="grid" id="curatedGrid"></div>
+
+  <div class="section-head">
+    <h2>My Playlists</h2>
+    <button id="deletePlaylistBtn" class="btn-danger" hidden>Delete Playlist 🗑️</button>
+  </div>
+  <div id="categoryBar" class="btn-bar" style="margin-top: 12px;"></div>
+  <div class="grid" id="categoryStationsGrid"></div>
+
+  <!-- Player -->
+  <div class="player-bar" id="playerBar">
+    <div class="now-playing-wrapper">
+      <img id="nowPlayingLogo" class="now-playing-logo" src="" alt="" hidden>
+      <div class="now-playing">
+        <div class="now-title" id="nowPlayingTitle">Select a station</div>
+        <div class="now-sub" id="nowPlayingSub">Ready to stream</div>
+      </div>
+    </div>
+
+    <audio id="audioPlayer" controls preload="none"></audio>
+
+    <div class="player-actions">
+      <button id="shareBtn" class="btn-secondary" title="Share this station">Share 🔗</button>
+      <button id="addToPlaylistBtn">Add to Playlist</button>
+    </div>
+  </div>
+
+  <!-- Playlist modal -->
+  <div id="categoryModal" class="modal" hidden>
+    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="categoryModalTitle">
+      <h3 id="categoryModalTitle">Save Station to Playlist</h3>
+      <input type="text" id="newCategoryInput" placeholder="New playlist name (e.g., French, Chill)">
+      <h4>Existing Playlists</h4>
+      <div id="existingCategoryList" class="btn-bar"></div>
+      <div class="modal-buttons">
+        <button id="createCategoryBtn">Create &amp; Add</button>
+        <button class="ghost" data-close-modal>Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit station modal -->
+  <div id="editStationModal" class="modal" hidden>
+    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
+      <h3 id="editModalTitle">Edit Station Details</h3>
+      <label for="editStationNameInput">Station Title</label>
+      <input type="text" id="editStationNameInput">
+      <label for="editStationSubInput">Subtitle / Genre</label>
+      <input type="text" id="editStationSubInput">
+      <div class="modal-buttons">
+        <button id="saveStationEditBtn">Save Changes</button>
+        <button class="ghost" data-close-modal>Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- iOS install help -->
+  <div id="installModal" class="modal" hidden>
+    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="installModalTitle">
+      <h3 id="installModalTitle">Install APES Radio</h3>
+      <p class="install-steps">
+        Tap the <strong>Share</strong> button <span class="glyph">⬆︎</span> in Safari's toolbar,
+        scroll down, then choose <strong>Add to Home Screen</strong>.
+      </p>
+      <p class="install-steps">It'll launch fullscreen with its own icon — no browser chrome.</p>
+      <div class="modal-buttons">
+        <button class="ghost" data-close-modal>Got it</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    /* =========================================================
+       Constants & helpers
+       ========================================================= */
+    const API_BASE = 'https://de1.api.radio-browser.info/json';
+    const TAG_HISTORY_LIMIT = 50;
+
+    const DEFAULT_LOGO = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 24 24' fill='none' stroke='%231db954' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.9 19.1C1 15.2 1 8.8 4.9 4.9'/%3E%3Cpath d='M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5'/%3E%3Ccircle cx='12' cy='12' r='2' fill='%231db954'/%3E%3Cpath d='M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5'/%3E%3Cpath d='M19.1 4.9c3.9 3.9 3.9 10.2 0 14.1'/%3E%3C/svg%3E";
+
+    const $  = (sel, root = document) => root.querySelector(sel);
+    const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+    const store = {
+      get(key, fallback) {
+        try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
+        catch { return fallback; }
+      },
+      set(key, value) {
+        try { localStorage.setItem(key, JSON.stringify(value)); }
+        catch { /* quota / private mode — fail quietly */ }
+      }
+    };
+
+    function getLogoUrl(url) {
+      return (url && url.trim().length > 0) ? url.trim() : DEFAULT_LOGO;
+    }
+
+    function isHttps(url) {
+      return typeof url === 'string' && url.startsWith('https://');
+    }
+
+    // Swap to the fallback logo exactly once, without an inline onerror string.
+    function attachLogoFallback(img) {
+      img.addEventListener('error', function handle() {
+        img.removeEventListener('error', handle);
+        img.src = DEFAULT_LOGO;
+      });
+    }
+
+    /* URL-safe base64 (handles unicode, unlike raw btoa) */
+    function b64encode(str) {
+      const bytes = new TextEncoder().encode(str);
+      let bin = '';
+      bytes.forEach(b => { bin += String.fromCharCode(b); });
+      return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+
+    function b64decode(str) {
+      const padded = str.replace(/-/g, '+').replace(/_/g, '/');
+      const bin = atob(padded + '='.repeat((4 - padded.length % 4) % 4));
+      const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+      return new TextDecoder().decode(bytes);
+    }
+
+    /* Toast */
+    let toastTimer = null;
+    function toast(message) {
+      let el = $('#toast');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'toast';
+        el.className = 'toast';
+        el.setAttribute('role', 'status');
+        el.setAttribute('aria-live', 'polite');
+        document.body.append(el);
+      }
+      el.textContent = message;
+      el.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
+    }
+
+    /* =========================================================
+       Player
+       ========================================================= */
+    const audioPlayer     = $('#audioPlayer');
+    const nowPlayingTitle = $('#nowPlayingTitle');
+    const nowPlayingSub   = $('#nowPlayingSub');
+    const nowPlayingLogo  = $('#nowPlayingLogo');
+
+    let currentStation = null; // { name, subtitle, url, favicon, tags }
+
+    function playStation(station) {
+      const { name, subtitle, url, tags, favicon } = station;
+
+      if (!isHttps(url)) {
+        nowPlayingSub.textContent = 'Stream unavailable over HTTPS — try another station';
+        toast('This stream is HTTP-only and blocked on a secure page');
+        return;
+      }
+
+      nowPlayingTitle.textContent = name || 'Unknown Station';
+      nowPlayingSub.textContent   = subtitle || 'Online Stream';
+      nowPlayingLogo.src          = getLogoUrl(favicon);
+      nowPlayingLogo.onerror      = () => { nowPlayingLogo.onerror = null; nowPlayingLogo.src = DEFAULT_LOGO; };
+      nowPlayingLogo.hidden       = false;
+
+      currentStation = { name, subtitle, url, favicon, tags };
+      audioPlayer.src = url;
+      audioPlayer.play().catch(() => { /* iOS may still want a second tap */ });
+      logPlayTag(tags);
+    }
+
+    audioPlayer.addEventListener('error', () => {
+      if (audioPlayer.src) {
+        nowPlayingSub.textContent = 'Stream unavailable — try another station';
+      }
+    });
+
+    audioPlayer.addEventListener('playing', () => {
+      const sub = currentStation && currentStation.subtitle;
+      nowPlayingSub.textContent = sub || 'Online Stream';
+    });
+
+    /* Keep body padding in sync with the real player height
+       (it changes between 1-row desktop and 2-row mobile). */
+    const playerBar = $('#playerBar');
+    if ('ResizeObserver' in window) {
+      new ResizeObserver(() => {
+        document.documentElement.style.setProperty('--player-h', playerBar.offsetHeight + 'px');
+      }).observe(playerBar);
+    }
+
+    /* =========================================================
+       Taste profile
+       ========================================================= */
+    function logPlayTag(tags) {
+      if (!tags) return;
+      const history = store.get('tagHistory', {});
+      tags.split(',')
+        .map(t => t.trim().toLowerCase())
+        .filter(t => t.length > 2)
+        .forEach(tag => { history[tag] = (history[tag] || 0) + 1; });
+
+      const trimmed = Object.entries(history)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, TAG_HISTORY_LIMIT);
+
+      store.set('tagHistory', Object.fromEntries(trimmed));
+      updateDiscoverButton();
+    }
+
+    function hasTasteProfile() {
+      return Object.keys(store.get('tagHistory', {})).length > 0;
+    }
+
+    function updateDiscoverButton() {
+      const btn = $('#modeBar button[data-mode="discover"]');
+      if (!btn) return;
+      const ready = hasTasteProfile();
+      btn.disabled = !ready;
+      btn.title = ready
+        ? 'Tuned to what you have been playing'
+        : 'Play a few stations first — we\'ll learn your taste';
+    }
+
+    /* =========================================================
+       Card factory
+       ========================================================= */
+    function makeStationCard(station, onPlay, actions = []) {
+      const card = document.createElement('div');
+      card.className = 'card';
+
+      // --- real <button> for the play target (keyboard + SR for free) ---
+      const main = document.createElement('button');
+      main.className = 'card-main';
+      main.type = 'button';
+      main.setAttribute('aria-label', 'Play ' + (station.name || 'station'));
+
+      const img = document.createElement('img');
+      img.className = 'station-logo';
+      img.alt = '';
+      img.loading = 'lazy';
+      img.src = getLogoUrl(station.favicon);
+      attachLogoFallback(img);
+
+      const info = document.createElement('span');
+      info.className = 'card-info';
+
+      const title = document.createElement('span');
+      title.className = 'card-title';
+      title.textContent = station.name || 'Unknown Station';
+
+      const sub = document.createElement('span');
+      sub.className = 'card-subtitle';
+      sub.textContent = station.subtitle || '';
+
+      info.append(title, sub);
+      main.append(img, info);
+      main.addEventListener('click', onPlay);
+      card.append(main);
+
+      // --- actions are siblings, never nested inside the button ---
+      if (actions.length) {
+        const actionsEl = document.createElement('div');
+        actionsEl.className = 'card-actions';
+        actions.forEach(a => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = a.className || 'btn-secondary';
+          btn.textContent = a.label;
+          btn.addEventListener('click', a.handler);
+          actionsEl.append(btn);
+        });
+        card.append(actionsEl);
+      }
+
+      return card;
+    }
+
+    function subtitleFor(st) {
+      return `${st.countrycode || 'Global'} • ${st.codec || 'Stream'} (${st.bitrate || '?'} kbps)`;
+    }
+
+    /* =========================================================
+       Sharing
+       ========================================================= */
+    async function shareStation(station) {
+      if (!station || !station.url) {
+        toast('Play a station first');
+        return;
+      }
+
+      const encoded = b64encode(JSON.stringify({
+        n: station.name,
+        s: station.subtitle,
+        u: station.url,
+        f: station.favicon
+      }));
+
+      const link = `${location.origin}${location.pathname}?s=${encoded}`;
+      const text = `Listen to ${station.name}${station.subtitle ? ' — ' + station.subtitle : ''}`;
+
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: 'APES Radio', text, url: link });
+          return;
+        } catch (err) {
+          if (err && err.name === 'AbortError') return; // user cancelled
+          // otherwise fall through to clipboard
+        }
+      }
+
+      try {
+        await navigator.clipboard.writeText(link);
+        toast('Link copied to clipboard');
+      } catch {
+        window.prompt('Copy this link:', link);
+      }
+    }
+
+    // If the page was opened from a shared link, offer the station up top.
+    function checkSharedStation() {
+      const raw = new URLSearchParams(location.search).get('s');
+      if (!raw) return;
+
+      let data;
+      try { data = JSON.parse(b64decode(raw)); } catch { return; }
+      if (!data || !data.u || !isHttps(data.u)) return;
+
+      const station = {
+        name: data.n || 'Shared Station',
+        subtitle: data.s || 'Shared with you',
+        url: data.u,
+        favicon: data.f || ''
+      };
+
+      const grid = $('#sharedGrid');
+      grid.innerHTML = '';
+      grid.append(makeStationCard(station, () => playStation(station), [
+        {
+          label: 'Add to Playlist',
+          className: 'btn-secondary',
+          handler: () => { playStation(station); openCategoryModal(); }
+        }
+      ]));
+
+      $('#sharedSection').hidden = false;
+    }
+
+    /* =========================================================
+       Starter favorites
+       ========================================================= */
+    const staticFavorites = [
+      {
+        name: "Universal Stereo Online",
+        subtitle: "Ad-free 60s-90s Classic Hits",
+        url: "https://playerservices.streamtheworld.com/api/livestream-redirect/XERC_FMAAC.aac",
+        tags: "classic rock, 80s, 70s, oldies",
+        favicon: "https://universal881.com/wp-content/uploads/2021/03/favicon.png"
+      },
+      {
+        name: "Universal 88.1 FM",
+        subtitle: "Live Mexico City Broadcast",
+        url: "https://playerservices.streamtheworld.com/api/livestream-redirect/XHRED_FMAAC.aac",
+        tags: "pop, classic rock, Mexico",
+        favicon: "https://universal881.com/wp-content/uploads/2021/03/favicon.png"
+      },
+      {
+        name: "Nostalgie France",
+        subtitle: "French & Foreign Classic Hits",
+        url: "https://cdn.nrjaudio.fm/audio/1/fr/30601/mp3_128.mp3",
+        tags: "french, oldies, pop",
+        favicon: "https://www.nostalgie.fr/favicon.ico"
+      }
+    ];
+
+    staticFavorites.forEach(station => {
+      $('#curatedGrid').append(makeStationCard(station, () => playStation(station)));
+    });
+
+    /* =========================================================
+       Explore modes
+       ========================================================= */
+    let modeAbort = null;
+
+    async function loadMode(mode, btnEl) {
+      const grid = $('#modeResultsGrid');
+      grid.innerHTML = '<span class="muted">Loading stations…</span>';
+
+      $$('#modeBar button').forEach(b => b.classList.remove('active'));
+      if (btnEl) btnEl.classList.add('active');
+
+      if (modeAbort) modeAbort.abort();
+      modeAbort = new AbortController();
+      const { signal } = modeAbort;
+
+      const params = new URLSearchParams({ limit: '12', hidebroken: 'true' });
+      let endpoint = `${API_BASE}/stations/search`;
+
+      if (mode === 'popular') {
+        params.set('order', 'clickcount');
+        params.set('reverse', 'true');
+      } else if (mode === 'trending') {
+        params.set('order', 'clicktrend');
+        params.set('reverse', 'true');
+      } else if (mode === 'gems') {
+        // Random decent-bitrate batch, then filter for low traffic locally.
+        params.set('order', 'random');
+        params.set('bitrateMin', '128');
+        params.set('limit', '40');
+      } else if (mode === 'new') {
+        // changetimestamp is a valid `order` on /stations/search, so we keep
+        // limit + hidebroken support (unlike /stations/lastchange).
+        params.set('order', 'changetimestamp');
+        params.set('reverse', 'true');
+      } else if (mode === 'lucky') {
+        params.set('order', 'random');
+        params.set('limit', '1');
+      } else if (mode === 'discover') {
+        const history = store.get('tagHistory', {});
+        const topTag = Object.keys(history).sort((a, b) => history[b] - history[a])[0];
+        params.set('tag', topTag || 'classic rock');
+        params.set('order', 'random');
+      }
+
+      try {
+        const res = await fetch(`${endpoint}?${params}`, { signal });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+
+        let stations = await res.json();
+        if (!Array.isArray(stations)) stations = [];
+
+        // HTTPS-only: mixed content is blocked outright on a secure page.
+        stations = stations.filter(s => isHttps(s.url_resolved || s.url));
+
+        if (mode === 'gems') {
+          const gems = stations.filter(s => (s.clickcount || 0) < 300).slice(0, 12);
+          stations = gems.length ? gems : stations.slice(0, 12);
+        }
+
+        grid.innerHTML = '';
+
+        if (stations.length === 0) {
+          grid.innerHTML = '<span class="muted">No stations available for this mode.</span>';
+          return;
+        }
+
+        if (mode === 'lucky') {
+          const st = stations[0];
+          const station = {
+            name: st.name,
+            subtitle: st.tags || 'Surprise Stream',
+            url: st.url_resolved || st.url,
+            tags: st.tags,
+            favicon: st.favicon
+          };
+          playStation(station);
+          grid.append(makeStationCard(station, () => playStation(station)));
+          return;
+        }
+
+        stations.forEach(st => {
+          const station = {
+            name: st.name,
+            subtitle: subtitleFor(st),
+            url: st.url_resolved || st.url,
+            tags: st.tags,
+            favicon: st.favicon
+          };
+          grid.append(makeStationCard(station, () => playStation(station)));
+        });
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+        grid.innerHTML = '<span class="muted">Error loading mode. Please try again.</span>';
+      }
+    }
+
+    $('#modeBar').addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-mode]');
+      if (!btn || btn.disabled) return;
+      loadMode(btn.dataset.mode, btn);
+    });
+
+    /* =========================================================
+       Search (debounced + abortable)
+       ========================================================= */
+    const searchInput = $('#searchInput');
+    let searchAbort = null;
+    let searchTimer = null;
+
+    async function runSearch(query) {
+      const section = $('#searchResultsSection');
+      const grid = $('#searchResultsGrid');
+
+      if (!query || query.length < 2) {
+        section.hidden = true;
+        return;
+      }
+
+      grid.innerHTML = '<span class="muted">Searching…</span>';
+      section.hidden = false;
+
+      if (searchAbort) searchAbort.abort();
+      searchAbort = new AbortController();
+      const { signal } = searchAbort;
+
+      const params = new URLSearchParams({ limit: '24', hidebroken: 'true' });
+
+      try {
+        // Name first; if that's empty, retry as a tag so the placeholder is honest.
+        let res = await fetch(
+          `${API_BASE}/stations/search?name=${encodeURIComponent(query)}&${params}`,
+          { signal }
+        );
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        let stations = await res.json();
+
+        if (!Array.isArray(stations) || stations.length === 0) {
+          res = await fetch(
+            `${API_BASE}/stations/search?tag=${encodeURIComponent(query)}&${params}`,
+            { signal }
+          );
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          stations = await res.json();
+        }
+
+        if (!Array.isArray(stations)) stations = [];
+        stations = stations.filter(s => isHttps(s.url_resolved || s.url));
+
+        grid.innerHTML = '';
+        if (stations.length === 0) {
+          grid.innerHTML = '<span class="muted">No stations found.</span>';
+          return;
+        }
+
+        stations.slice(0, 12).forEach(st => {
+          const station = {
+            name: st.name,
+            subtitle: `${st.countrycode || 'Global'} • ${st.codec || 'Stream'}`,
+            url: st.url_resolved || st.url,
+            tags: st.tags,
+            favicon: st.favicon
+          };
+          grid.append(makeStationCard(station, () => playStation(station)));
+        });
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+        grid.innerHTML = '<span class="muted">Error searching stations.</span>';
+      }
+    }
+
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => runSearch(searchInput.value.trim()), 500);
+    });
+
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        clearTimeout(searchTimer);
+        runSearch(searchInput.value.trim());
+        searchInput.blur();
+      }
+    });
+
+    $('#searchBtn').addEventListener('click', () => {
+      clearTimeout(searchTimer);
+      runSearch(searchInput.value.trim());
+    });
+
+    /* =========================================================
+       Playlists
+       ========================================================= */
+    let categories = store.get('categories', {});
+    let currentActiveCategory = null;
+    let editingCategory = null;
+    let editingIndex = null;
+
+    const categoryBar          = $('#categoryBar');
+    const categoryStationsGrid = $('#categoryStationsGrid');
+    const deletePlaylistBtn    = $('#deletePlaylistBtn');
+
+    function saveCategories() { store.set('categories', categories); }
+
+    function addToCategory(categoryName) {
+      if (!currentStation) { toast('Play a station first'); return; }
+
+      if (!categories[categoryName]) categories[categoryName] = [];
+
+      const duplicate = categories[categoryName]
+        .some(s => s.name === currentStation.name && s.url === currentStation.url);
+
+      if (duplicate) { toast('Already in that playlist'); return; }
+
+      categories[categoryName].push({ ...currentStation });
+      saveCategories();
+      renderCategories(categoryName);
+      renderCategoryStations(categoryName);
+      toast(`Saved to "${categoryName}"`);
+    }
+
+    function renderCategories(activeCategory = null) {
+      categoryBar.innerHTML = '';
+      const keys = Object.keys(categories);
+
+      if (keys.length === 0) {
+        categoryBar.innerHTML = '<span class="muted">No custom playlists yet. Use "Add to Playlist" on any playing station.</span>';
+        categoryStationsGrid.innerHTML = '';
+        deletePlaylistBtn.hidden = true;
+        currentActiveCategory = null;
+        return;
+      }
+
+      if (!activeCategory || !categories[activeCategory]) activeCategory = keys[0];
+      currentActiveCategory = activeCategory;
+      deletePlaylistBtn.hidden = false;
+
+      keys.forEach(cat => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = cat; // textContent — quotes and apostrophes are safe
+        if (cat === activeCategory) btn.classList.add('active');
+        btn.addEventListener('click', () => {
+          renderCategories(cat);
+          renderCategoryStations(cat);
+        });
+        categoryBar.append(btn);
+      });
+    }
+
+    function deleteCurrentCategory() {
+      if (!currentActiveCategory) return;
+      if (!confirm(`Delete the playlist "${currentActiveCategory}"? This cannot be undone.`)) return;
+
+      delete categories[currentActiveCategory];
+      saveCategories();
+
+      const remaining = Object.keys(categories);
+      if (remaining.length === 0) {
+        renderCategories();
+        categoryStationsGrid.innerHTML = '<span class="muted">No playlists yet.</span>';
+        toast('Playlist deleted');
+        return;
+      }
+
+      renderCategories(remaining[0]);
+      renderCategoryStations(remaining[0]);
+      toast('Playlist deleted');
+    }
+
+    function removeFromCategory(categoryName, index) {
+      categories[categoryName].splice(index, 1);
+      saveCategories();
+      renderCategoryStations(categoryName);
+    }
+
+    function renderCategoryStations(categoryName) {
+      categoryStationsGrid.innerHTML = '';
+      const list = categories[categoryName] || [];
+
+      if (list.length === 0) {
+        categoryStationsGrid.innerHTML = '<span class="muted">No stations saved in this playlist.</span>';
+        return;
+      }
+
+      list.forEach((st, idx) => {
+        const station = {
+          name: st.name,
+          subtitle: st.subtitle,
+          url: st.url,
+          favicon: st.favicon,
+          tags: st.tags || ''
+        };
+
+        categoryStationsGrid.append(makeStationCard(station, () => playStation(station), [
+          { label: 'Share 🔗', className: 'btn-secondary', handler: () => shareStation(station) },
+          { label: 'Edit ✏️',  className: 'btn-secondary', handler: () => openEditModal(categoryName, idx) },
+          { label: 'Remove 🗑️', className: 'btn-danger',   handler: () => removeFromCategory(categoryName, idx) }
+        ]));
+      });
+    }
+
+    /* =========================================================
+       Modals
+       ========================================================= */
+    let lastFocused = null;
+
+    function openModal(el) {
+      lastFocused = document.activeElement;
+      el.hidden = false;
+      const focusable = el.querySelector('input, button:not([disabled])');
+      if (focusable) setTimeout(() => focusable.focus(), 40);
+    }
+
+    function closeModal(el) {
+      el.hidden = true;
+      if (lastFocused && document.contains(lastFocused)) lastFocused.focus();
+      lastFocused = null;
+    }
+
+    function closeAllModals() {
+      $$('.modal').forEach(m => { if (!m.hidden) closeModal(m); });
+    }
+
+    // Escape closes; click on the backdrop closes.
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeAllModals();
+    });
+
+    document.addEventListener('click', (e) => {
+      if (e.target.classList.contains('modal')) closeModal(e.target);
+      if (e.target.matches('[data-close-modal]')) closeAllModals();
+    });
+
+    /* --- Add to playlist --- */
+    function openCategoryModal() {
+      if (!currentStation) { toast('Play a station first'); return; }
+
+      const list  = $('#existingCategoryList');
+      const input = $('#newCategoryInput');
+      input.value = '';
+      list.innerHTML = '';
+
+      const keys = Object.keys(categories);
+      if (keys.length === 0) {
+        list.innerHTML = '<span class="muted">No playlists yet. Create one above.</span>';
+      } else {
+        keys.forEach(cat => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.textContent = cat;
+          btn.addEventListener('click', () => {
+            addToCategory(cat);
+            closeModal($('#categoryModal'));
+          });
+          list.append(btn);
+        });
+      }
+
+      openModal($('#categoryModal'));
+    }
+
+    function createNewCategory() {
+      const name = $('#newCategoryInput').value.trim();
+      if (!name) return;
+      addToCategory(name);
+      closeModal($('#categoryModal'));
+    }
+
+    /* --- Edit station --- */
+    function openEditModal(categoryName, index) {
+      editingCategory = categoryName;
+      editingIndex = index;
+      const st = categories[categoryName][index];
+      $('#editStationNameInput').value = st.name || '';
+      $('#editStationSubInput').value  = st.subtitle || '';
+      openModal($('#editStationModal'));
+    }
+
+    function saveStationEdit() {
+      if (editingIndex === null || !editingCategory) return;
+      const name = $('#editStationNameInput').value.trim();
+      const sub  = $('#editStationSubInput').value.trim();
+      const station = categories[editingCategory] && categories[editingCategory][editingIndex];
+
+      if (name && station) {
+        station.name = name;
+        station.subtitle = sub;
+        saveCategories();
+        renderCategoryStations(editingCategory);
+        toast('Station updated');
+      }
+      closeModal($('#editStationModal'));
+      editingCategory = null;
+      editingIndex = null;
+    }
+
+    /* =========================================================
+       PWA install
+       ========================================================= */
+    const installBtn = $('#installBtn');
+    let deferredPrompt = null;
+
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+      || window.navigator.standalone === true;
+
+    const ua = navigator.userAgent;
+    const isIOS = /iPad|iPhone|iPod/.test(ua)
+      || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    if (!isStandalone && isIOS) installBtn.hidden = false;
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      if (!isStandalone) installBtn.hidden = false;
+    });
+
+    window.addEventListener('appinstalled', () => {
+      deferredPrompt = null;
+      installBtn.hidden = true;
+      toast('APES Radio installed 🎉');
+    });
+
+    installBtn.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const choice = await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        if (choice && choice.outcome === 'accepted') installBtn.hidden = true;
+        return;
+      }
+      openModal($('#installModal')); // iOS instructions
+    });
+
+    /* =========================================================
+       Wiring
+       ========================================================= */
+    $('#addToPlaylistBtn').addEventListener('click', openCategoryModal);
+    $('#createCategoryBtn').addEventListener('click', createNewCategory);
+    $('#saveStationEditBtn').addEventListener('click', saveStationEdit);
+    $('#deletePlaylistBtn').addEventListener('click', deleteCurrentCategory);
+
+    $('#shareBtn').addEventListener('click', () => {
+      if (!currentStation) { toast('Play a station first'); return; }
+      shareStation(currentStation);
+    });
+
+    $('#newCategoryInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') createNewCategory();
+    });
+
+    /* =========================================================
+       Service worker
+       ========================================================= */
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+      });
+    }
+
+    /* =========================================================
+       Init
+       ========================================================= */
+    updateDiscoverButton();
+    renderCategories();
+    checkSharedStation();
+
+    const popularBtn = $('#modeBar button[data-mode="popular"]');
+    if (popularBtn) loadMode('popular', popularBtn);
+  })();
+  </script>
+</body>
+</html>
