@@ -26,6 +26,7 @@
   --text-mute: #666;
   --border: #232323;
   --danger: #e5484d;
+  --warn: #f0a500;
   --r-sm: 8px;
   --r: 12px;
   --r-lg: 18px;
@@ -272,7 +273,6 @@ input {
 
 .shelf.expanded .shelf-card { flex: 0 0 calc(50% - 6px); }
 
-/* Wrapper (positioning context for the heart) */
 .shelf-card {
   position: relative;
   flex: 0 0 128px;
@@ -282,7 +282,6 @@ input {
 
 .shelf-card:active { transform: scale(.96); }
 
-/* Actual play button — fills the wrapper */
 .shelf-play-btn {
   display: flex;
   flex-direction: column;
@@ -347,7 +346,6 @@ input {
   text-overflow: ellipsis;
 }
 
-/* Heart button over the artwork */
 .shelf-heart {
   position: absolute;
   top: 6px;
@@ -461,20 +459,11 @@ input {
 .chips button:hover { background: var(--surface-3); }
 .chips button.active { background: var(--accent); color: #000; }
 
-/* Genre mode header */
 .genre-mode-header {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 0 20px 12px;
-}
-
-.genre-mode-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: .8px;
-  color: var(--text-dim);
-  font-weight: 700;
 }
 
 .genre-mode-name {
@@ -501,7 +490,6 @@ input {
 .genre-mode-close:hover { color: var(--text); }
 .genre-mode-close svg { width: 16px; height: 16px; }
 
-/* Sort chips sit tighter than genre chips */
 .sort-chips {
   display: flex;
   gap: 8px;
@@ -641,6 +629,14 @@ input {
   object-fit: cover;
   background: var(--surface-2);
   flex-shrink: 0;
+  transition: opacity .3s, filter .3s;
+}
+
+/* Dim the artwork while we're trying to reconnect — a subtle
+   "something is happening" cue that doesn't scream at the user. */
+.mini-art.reconnecting {
+  opacity: .5;
+  filter: grayscale(.4);
 }
 
 .mini-info { flex: 1; min-width: 0; }
@@ -660,7 +656,13 @@ input {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: color .2s;
 }
+
+/* Connection-state colours on the subtitle line */
+.mini-sub.connecting { color: var(--warn); }
+.mini-sub.offline    { color: var(--text-mute); }
+.mini-sub.error      { color: var(--danger); }
 
 .mini-btn {
   width: 42px; height: 42px;
@@ -834,7 +836,7 @@ input {
   overflow: hidden;
   background: var(--surface-2);
   box-shadow: 0 24px 60px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.04);
-  transition: box-shadow .3s;
+  transition: box-shadow .3s, opacity .3s;
 }
 
 .full-player.playing .fp-art {
@@ -842,6 +844,8 @@ input {
     0 24px 80px rgba(var(--np-accent-rgb, 29, 185, 84), 0.3),
     0 0 0 1px rgba(255, 255, 255, 0.06);
 }
+
+.full-player.dead .fp-art { opacity: .45; }
 
 .fp-art img { width: 100%; height: 100%; object-fit: cover; }
 
@@ -869,7 +873,12 @@ input {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  transition: color .2s;
 }
+
+.fp-sub.connecting { color: var(--warn); }
+.fp-sub.offline    { color: var(--text-mute); }
+.fp-sub.error      { color: var(--danger); }
 
 .fp-controls {
   display: flex;
@@ -1255,18 +1264,6 @@ input[type=range]::-moz-range-thumb {
     <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
       <polyline points="20 6 9 17 4 12"/>
-    </symbol>
-
-    <!-- Filled heart for liked state -->
-    <symbol id="i-heart-fill" viewBox="0 0 24 24">
-      <path fill="currentColor"
-        d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-    </symbol>
-
-    <!-- Outlined heart for unliked state -->
-    <symbol id="i-heart-outline" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
     </symbol>
   </defs>
 </svg>
@@ -1658,9 +1655,14 @@ input[type=range]::-moz-range-thumb {
   const RECENT_PLAYED_LIMIT = 20;
   const LIKED_CAT = 'Liked';
 
-  // Anything below this bitrate is essentially unlistenable; block it.
-  // Unknown bitrate (API returned null/0) is allowed through.
   const MIN_BITRATE = 48;
+
+  // Auto-reconnect: backoff in ms between attempts. After the list is
+  // exhausted we show "Stream lost" and wait for the user to retry.
+  const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 15000];
+  // Stall/waiting watchdog: if we don't see 'playing' or 'progress' with
+  // data within this window, treat it as a silent drop.
+  const WATCHDOG_MS = 8000;
 
   const DEFAULT_LOGO = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 24 24' fill='none' stroke='%231db954' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='2' fill='%231db954'/%3E%3Cpath d='M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5'/%3E%3Cpath d='M19.1 4.9c3.9 3.9 3.9 10.2 0 14.1'/%3E%3Cpath d='M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5'/%3E%3Cpath d='M4.9 19.1C1 15.2 1 8.8 4.9 4.9'/%3E%3C/svg%3E";
 
@@ -1735,7 +1737,7 @@ input[type=range]::-moz-range-thumb {
   }
 
   /* ================================================================
-     Bitrate / HTTPS filter — kills broken streams
+     Bitrate / HTTPS filter
      ================================================================ */
   function filterUsable(stations) {
     if (!Array.isArray(stations)) return [];
@@ -1774,13 +1776,12 @@ input[type=range]::-moz-range-thumb {
     }
     store.set('liked', list);
 
-    // Refresh every heart on the page pointing at this URL.
     $$('[data-heart-url]').forEach(btn => {
       const u = btn.getAttribute('data-heart-url');
       setHeartState(btn, isLiked(u));
     });
     updateFullPlayerHeart();
-    renderLibrary(); // refresh Liked playlist if user is viewing it
+    renderLibrary();
     haptic(10);
   }
 
@@ -1798,6 +1799,14 @@ input[type=range]::-moz-range-thumb {
      ================================================================ */
   const audio = $('#audioPlayer');
   let currentStation = null;
+
+  // Auto-reconnect state
+  let reconnectTimer = null;
+  let reconnectAttempts = 0;
+  let watchdogTimer = null;
+  let userPaused = false;
+  let hasPlayedCurrentSrc = false;
+  let lastConnectionState = 'idle';
 
   const miniPlayer   = $('#miniPlayer');
   const miniArt      = $('#miniArt');
@@ -1826,6 +1835,200 @@ input[type=range]::-moz-range-thumb {
     setHeartState(fpHeart, isLiked(currentStation.url));
   }
 
+  /* ---- Connection state UI ---- */
+  function setConnectionState(state, delayMs) {
+    lastConnectionState = state;
+
+    [miniSub, fpSub].forEach(el => {
+      el.classList.remove('connecting', 'offline', 'error');
+    });
+
+    const rawSub = (currentStation && currentStation.subtitle) || 'Online Stream';
+
+    if (state === 'live') {
+      miniSub.textContent = rawSub;
+      fpSub.textContent   = rawSub;
+      miniArt.classList.remove('reconnecting');
+      fullPlayer.classList.remove('dead');
+    } else if (state === 'connecting') {
+      miniSub.textContent = 'Connecting…';
+      fpSub.textContent   = 'Connecting…';
+      [miniSub, fpSub].forEach(el => el.classList.add('connecting'));
+      miniArt.classList.add('reconnecting');
+      fullPlayer.classList.remove('dead');
+    } else if (state === 'reconnecting') {
+      const secs = Math.max(1, Math.round((delayMs || 0) / 1000));
+      const msg = 'Reconnecting in ' + secs + 's…';
+      miniSub.textContent = msg;
+      fpSub.textContent   = msg;
+      [miniSub, fpSub].forEach(el => el.classList.add('connecting'));
+      miniArt.classList.add('reconnecting');
+      fullPlayer.classList.remove('dead');
+    } else if (state === 'offline') {
+      miniSub.textContent = 'No connection';
+      fpSub.textContent   = 'No connection';
+      [miniSub, fpSub].forEach(el => el.classList.add('offline'));
+      miniArt.classList.add('reconnecting');
+      fullPlayer.classList.remove('dead');
+    } else if (state === 'dead') {
+      miniSub.textContent = 'Stream lost — tap play to retry';
+      fpSub.textContent   = 'Stream lost — tap play to retry';
+      [miniSub, fpSub].forEach(el => el.classList.add('error'));
+      miniArt.classList.add('reconnecting');
+      fullPlayer.classList.add('dead');
+    }
+  }
+
+  /* ---- Reconnect machinery ---- */
+  function clearWatchdog() {
+    if (watchdogTimer) { clearTimeout(watchdogTimer); watchdogTimer = null; }
+  }
+
+  function clearReconnect() {
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+    clearWatchdog();
+  }
+
+  function armWatchdog() {
+    clearWatchdog();
+    watchdogTimer = setTimeout(() => {
+      watchdogTimer = null;
+      if (!userPaused && currentStation) handleStreamDrop();
+    }, WATCHDOG_MS);
+  }
+
+  function scheduleReconnect() {
+    if (reconnectTimer) return;
+    const delay = RECONNECT_DELAYS[Math.min(reconnectAttempts, RECONNECT_DELAYS.length - 1)];
+    reconnectAttempts++;
+    setConnectionState('reconnecting', delay);
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
+      attemptReconnect();
+    }, delay);
+  }
+
+  function handleStreamDrop() {
+    if (userPaused || !currentStation) return;
+    if (reconnectTimer) return; // already waiting to retry
+    if (!navigator.onLine) { setConnectionState('offline'); return; }
+    if (reconnectAttempts >= RECONNECT_DELAYS.length) {
+      setConnectionState('dead');
+      setPlayIcons(false);
+      return;
+    }
+    clearWatchdog();
+    scheduleReconnect();
+  }
+
+  function attemptReconnect() {
+    if (!currentStation || userPaused) return;
+    if (!navigator.onLine) { setConnectionState('offline'); return; }
+
+    try {
+      // Reassigning .src to the same value triggers a full reload of the
+      // media resource in every browser; load() also forces it.
+      audio.src = currentStation.url;
+      audio.load();
+      const p = audio.play();
+      if (p && p.catch) p.catch(() => { /* error path handles retries */ });
+    } catch {
+      handleStreamDrop();
+    }
+    armWatchdog();
+  }
+
+  /* ---- Audio events ---- */
+  audio.addEventListener('play', () => {
+    setPlayIcons(true);
+    if ('mediaSession' in navigator) {
+      try { navigator.mediaSession.playbackState = 'playing'; } catch {}
+    }
+  });
+
+  audio.addEventListener('pause', () => {
+    setPlayIcons(false);
+    if ('mediaSession' in navigator) {
+      try { navigator.mediaSession.playbackState = 'paused'; } catch {}
+    }
+  });
+
+  audio.addEventListener('playing', () => {
+    hasPlayedCurrentSrc = true;
+    reconnectAttempts = 0;
+    clearReconnect();
+    setConnectionState('live');
+    setPlayIcons(true);
+  });
+
+  audio.addEventListener('progress', () => {
+    // Data flowing → clear a pending stall watchdog (but keep the
+    // backoff counter intact so subsequent drops still escalate).
+    if (audio.readyState >= 2) clearWatchdog();
+  });
+
+  audio.addEventListener('stalled', () => {
+    if (userPaused || !currentStation || reconnectTimer) return;
+    armWatchdog();
+  });
+
+  audio.addEventListener('waiting', () => {
+    if (userPaused || !currentStation || reconnectTimer) return;
+    // Only treat as a drop if we were already playing. Initial buffering
+    // is normal and shouldn't trigger reconnects.
+    if (hasPlayedCurrentSrc) armWatchdog();
+  });
+
+  audio.addEventListener('error', () => {
+    if (!audio.src || !currentStation || userPaused) return;
+    handleStreamDrop();
+  });
+
+  /* ---- Page / network awareness ---- */
+  window.addEventListener('online', () => {
+    if (!currentStation || userPaused) return;
+    if (lastConnectionState === 'offline' || lastConnectionState === 'dead') {
+      clearReconnect();
+      reconnectAttempts = 0;
+      setConnectionState('connecting');
+      attemptReconnect();
+    }
+  });
+
+  window.addEventListener('offline', () => {
+    clearReconnect();
+    if (currentStation && !userPaused) setConnectionState('offline');
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    if (!currentStation || userPaused) return;
+    // Returned to the tab and playback was killed while we were away.
+    if (audio.paused && !reconnectTimer && lastConnectionState !== 'dead') {
+      setConnectionState('connecting');
+      attemptReconnect();
+    }
+  });
+
+  /* ---- Play / pause / station changes ---- */
+  function togglePlay() {
+    if (!audio.src) { toast('Play a station first'); return; }
+    haptic(8);
+    if (audio.paused) {
+      userPaused = false;
+      if (lastConnectionState === 'dead') {
+        reconnectAttempts = 0;
+        clearReconnect();
+        setConnectionState('connecting');
+      }
+      audio.play().catch(() => {});
+    } else {
+      userPaused = true;
+      clearReconnect();
+      audio.pause();
+    }
+  }
+
   function playStation(station) {
     if (!station || !station.url) return;
     if (!isHttps(station.url)) {
@@ -1833,20 +2036,27 @@ input[type=range]::-moz-range-thumb {
       return;
     }
 
+    // Reset reconnect state for the new station
+    clearReconnect();
+    reconnectAttempts = 0;
+    hasPlayedCurrentSrc = false;
+    userPaused = false;
+
     currentStation = { ...station };
 
     miniArt.src = getLogo(station.favicon);
     miniArt.onerror = () => { miniArt.onerror = null; miniArt.src = DEFAULT_LOGO; };
     miniTitle.textContent = station.name || 'Unknown Station';
-    miniSub.textContent   = station.subtitle || 'Online Stream';
     miniPlayer.hidden = false;
 
     fpArt.src = getLogo(station.favicon);
     fpArt.onerror = () => { fpArt.onerror = null; fpArt.src = DEFAULT_LOGO; };
     fpTitle.textContent = station.name || 'Unknown Station';
-    fpSub.textContent   = station.subtitle || 'Online Stream';
 
     updateFullPlayerHeart();
+    updateMediaSession(station);
+
+    setConnectionState('connecting');
 
     audio.src = station.url;
     audio.play().then(() => {
@@ -1862,22 +2072,100 @@ input[type=range]::-moz-range-thumb {
     haptic(12);
   }
 
-  audio.addEventListener('play',  () => setPlayIcons(true));
-  audio.addEventListener('pause', () => setPlayIcons(false));
-
-  audio.addEventListener('error', () => {
-    if (audio.src) {
-      fpSub.textContent = 'Stream unavailable — try another station';
-      miniSub.textContent = 'Stream unavailable';
-      setPlayIcons(false);
+  /* ================================================================
+     Media Session — lock screen / Control Center / headphones
+     ================================================================ */
+  function updateMediaSession(station) {
+    if (!('mediaSession' in navigator)) return;
+    if (!station) {
+      try { navigator.mediaSession.metadata = null; } catch {}
+      return;
     }
-  });
+    const artwork = [];
+    if (station.favicon && !station.favicon.startsWith('data:')) {
+      artwork.push({ src: station.favicon, sizes: '96x96',   type: 'image/png' });
+      artwork.push({ src: station.favicon, sizes: '128x128', type: 'image/png' });
+      artwork.push({ src: station.favicon, sizes: '256x256', type: 'image/png' });
+      artwork.push({ src: station.favicon, sizes: '512x512', type: 'image/png' });
+    }
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title:  station.name     || 'Unknown Station',
+        artist: station.subtitle || 'Apes•Radio',
+        album:  'Apes•Radio',
+        artwork
+      });
+    } catch {}
+  }
 
-  function togglePlay() {
-    if (!audio.src) { toast('Play a station first'); return; }
-    haptic(8);
-    if (audio.paused) audio.play().catch(() => {});
-    else audio.pause();
+  function setupMediaSessionHandlers() {
+    if (!('mediaSession' in navigator)) return;
+
+    const setHandler = (action, handler) => {
+      try { navigator.mediaSession.setActionHandler(action, handler); }
+      catch {}
+    };
+
+    setHandler('play', () => {
+      userPaused = false;
+      audio.play().catch(() => {});
+    });
+
+    setHandler('pause', () => {
+      userPaused = true;
+      clearReconnect();
+      audio.pause();
+    });
+
+    setHandler('stop', () => {
+      userPaused = true;
+      clearReconnect();
+      audio.pause();
+      audio.src = '';
+      miniPlayer.hidden = true;
+      closeFullPlayer();
+      if ('mediaSession' in navigator) {
+        try {
+          navigator.mediaSession.metadata = null;
+          navigator.mediaSession.playbackState = 'none';
+        } catch {}
+      }
+    });
+
+    setHandler('nexttrack', () => { playRandomFromCachedShelves(); });
+
+    setHandler('previoustrack', () => {
+      // Previous = the station before the current one in history
+      const list = store.get('recentPlayed', []);
+      if (list.length < 2) return;
+      const st = list[1];
+      playStation({
+        name: st.name,
+        subtitle: st.subtitle,
+        url: st.url,
+        favicon: st.favicon,
+        tags: st.tags || ''
+      });
+    });
+  }
+
+  async function playRandomFromCachedShelves() {
+    const pools = [shelfCache.popular, shelfCache.trending, shelfCache.gems, shelfCache.new].filter(Boolean);
+    if (pools.length) {
+      const pool = pools[Math.floor(Math.random() * pools.length)];
+      if (pool && pool.length) {
+        const pick = pool[Math.floor(Math.random() * pool.length)];
+        playStation(stationFromApi(pick));
+        return;
+      }
+    }
+    // Fall back to a live fetch
+    try {
+      const params = new URLSearchParams({ order: 'random', limit: '20', hidebroken: 'true', bitrateMin: '128' });
+      const res = await fetch(`${API_BASE}/stations/search?${params}`);
+      const list = filterUsable(await res.json());
+      if (list.length) playStation(stationFromApi(list[Math.floor(Math.random() * list.length)]));
+    } catch {}
   }
 
   /* ================================================================
@@ -2334,7 +2622,6 @@ input[type=range]::-moz-range-thumb {
     renderRecentSearches();
   }
 
-  /* ---- Genre mode ---- */
   function activateGenre(genre) {
     currentGenre = genre;
     currentSort = 'popular';
@@ -2412,7 +2699,6 @@ input[type=range]::-moz-range-thumb {
     }
   }
 
-  /* ---- Text search ---- */
   async function runTextSearch(query, immediate = false) {
     query = (query || '').trim();
     if (query.length < 2) {
@@ -2524,7 +2810,6 @@ input[type=range]::-moz-range-thumb {
     if (!preferred || keys.indexOf(preferred) === -1) preferred = keys[0];
     activeCategory = preferred;
 
-    // Delete button only makes sense for user playlists, not Liked
     deletePlaylistBtn.hidden = (activeCategory === LIKED_CAT);
 
     keys.forEach(cat => {
@@ -2645,7 +2930,6 @@ input[type=range]::-moz-range-thumb {
     if (e.key === 'Enter') $('#createPlaylistBtn').click();
   });
 
-  /* ---- Station context sheet ---- */
   let sheetContext = { category: null, index: null, station: null };
 
   function openStationSheet(categoryName, index) {
@@ -2660,10 +2944,8 @@ input[type=range]::-moz-range-thumb {
     sheetContext = { category: categoryName, index, station: st };
     $('#stationSheetTitle').textContent = st.name || 'Station';
 
-    // Edit is only available for user playlists (Liked has no editable copy)
     $('#stationEditBtn').style.display = (categoryName === LIKED_CAT) ? 'none' : '';
 
-    // Remove label reflects context
     $('#stationRemoveBtn').lastChild.textContent =
       (categoryName === LIKED_CAT) ? ' Remove from Liked' : ' Remove from playlist';
 
@@ -2682,7 +2964,6 @@ input[type=range]::-moz-range-thumb {
     if (!st) return;
     toggleLike(st);
     updateStationLikeButton();
-    // Don't close — user may want to do something else
     haptic(8);
   });
 
@@ -3204,6 +3485,8 @@ input[type=range]::-moz-range-thumb {
   /* ================================================================
      Init
      ================================================================ */
+  setupMediaSessionHandlers();
+
   renderRecentSearches();
   renderRecentShelf();
   renderLibrary();
