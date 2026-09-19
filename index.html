@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
-<meta name="theme-color" content="#000000">
+<meta name="theme-color" content="#0a0a0a">
 <meta name="description" content="Stream 30,000+ radio stations. Save favorites, build playlists, discover new music.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -188,13 +188,15 @@ input {
 .lucky-card:active { transform: scale(.98); opacity: 1; }
 
 .lucky-icon {
-  font-size: 28px;
   width: 52px; height: 52px;
   display: grid; place-items: center;
   background: rgba(255,255,255,.08);
   border-radius: 14px;
   flex-shrink: 0;
+  color: var(--text);
 }
+
+.lucky-icon svg { display: block; }
 
 .lucky-text { flex: 1; min-width: 0; }
 
@@ -211,9 +213,7 @@ input {
 }
 
 /* ============ Shelves ============ */
-.shelf {
-  margin-bottom: 26px;
-}
+.shelf { margin-bottom: 26px; }
 
 .shelf-header {
   display: flex;
@@ -225,10 +225,20 @@ input {
 }
 
 .shelf-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-size: 18px;
   font-weight: 700;
   margin: 0;
   letter-spacing: -0.3px;
+}
+
+.shelf-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--accent);
+  flex-shrink: 0;
 }
 
 .shelf-see-all {
@@ -614,17 +624,32 @@ input {
   to   { transform: scaleX(1); opacity: 1; }
 }
 
+/* ============ Play / pause icon swap ============ */
+/* SVG elements have no `hidden` IDL reflection — we toggle a class
+   on the parent button and let these rules pick the visible icon. */
+.mini-btn .icon-pause,
+.fp-play .icon-pause { display: none; }
+
+.mini-btn.playing .icon-play,
+.fp-play.playing .icon-play { display: none; }
+
+.mini-btn.playing .icon-pause,
+.fp-play.playing .icon-pause { display: block; }
+
 /* ============ Full-screen player ============ */
 .full-player {
   position: fixed;
   inset: 0;
   z-index: 500;
-  background: linear-gradient(180deg, #1c2a1f 0%, #0a0a0a 55%);
+  background: linear-gradient(180deg,
+    rgb(var(--np-top-rgb, 28, 42, 31)) 0%,
+    #0a0a0a 55%);
+  transition: background .6s ease;
   display: flex;
   flex-direction: column;
   transform: translateY(100%);
   visibility: hidden;
-  transition: transform .32s cubic-bezier(.32,.72,0,1), visibility 0s .32s;
+  transition: transform .32s cubic-bezier(.32,.72,0,1), visibility 0s .32s, background .6s ease;
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
   overscroll-behavior: contain;
@@ -633,7 +658,7 @@ input {
 .full-player.open {
   transform: translateY(0);
   visibility: visible;
-  transition: transform .32s cubic-bezier(.32,.72,0,1), visibility 0s;
+  transition: transform .32s cubic-bezier(.32,.72,0,1), visibility 0s, background .6s ease;
 }
 
 .fp-drag-zone {
@@ -685,7 +710,9 @@ input {
 }
 
 .full-player.playing .fp-art {
-  box-shadow: 0 24px 80px rgba(29,185,84,.28), 0 0 0 1px rgba(255,255,255,.06);
+  box-shadow:
+    0 24px 80px rgba(var(--np-accent-rgb, 29, 185, 84), 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 .fp-art img { width: 100%; height: 100%; object-fit: cover; }
@@ -885,6 +912,7 @@ input[type=range]::-moz-range-thumb {
   font-size: 16px;
   color: var(--text);
   transition: box-shadow .15s;
+  width: calc(100% - 40px);
 }
 
 .sheet-input:focus { box-shadow: 0 0 0 2px var(--accent); }
@@ -940,9 +968,7 @@ input[type=range]::-moz-range-thumb {
   text-align: center;
 }
 
-.sheet-list {
-  padding: 0 12px;
-}
+.sheet-list { padding: 0 12px; }
 
 .sheet-list button {
   display: block;
@@ -993,13 +1019,45 @@ input[type=range]::-moz-range-thumb {
   z-index: 2000;
   max-width: calc(100vw - 40px);
   text-align: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
+.toast-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* ============ Pull to refresh ============ */
+.ptr-spinner {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 22px);
+  left: 50%;
+  width: 26px;
+  height: 26px;
+  color: var(--accent);
+  transform: translate(-50%, -60px) scale(.5);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 50;
+  transition: opacity .2s, transform .25s;
+}
+
+.ptr-spinner.refreshing svg {
+  animation: ptr-spin .8s linear infinite;
+}
+
+@keyframes ptr-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ============ Desktop scaling ============ */
 @media (min-width: 720px) {
-  body { font-size: 15px; }
   .view-header { padding: 40px 32px 16px; }
   .app-header { padding: 24px 32px 12px; }
   .lucky-card, .banner { margin-left: 32px; margin-right: 32px; width: auto; }
@@ -1007,7 +1065,6 @@ input[type=range]::-moz-range-thumb {
   .shelf-card { flex-basis: 158px; }
   .list, .search-input-wrap, .chips, .section-label, .empty-state { padding-left: 32px; padding-right: 32px; }
   .search-input-wrap { margin-left: 32px; margin-right: 32px; }
-  .section-label { padding-left: 32px; padding-right: 32px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1017,10 +1074,71 @@ input[type=range]::-moz-range-thumb {
 </head>
 <body>
 
+<!-- ============================================================
+     SVG sprite — all icons defined once, referenced by <use>
+     ============================================================ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-flame" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+    </symbol>
+
+    <symbol id="i-trending" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
+      <polyline points="16 7 22 7 22 13"/>
+    </symbol>
+
+    <symbol id="i-target" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/>
+      <circle cx="12" cy="12" r="6"/>
+      <circle cx="12" cy="12" r="2"/>
+    </symbol>
+
+    <symbol id="i-gem" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 3h12l4 6-10 12L2 9z"/>
+      <path d="M11 3 8 9l4 12 4-12-3-6"/>
+      <path d="M2 9h20"/>
+    </symbol>
+
+    <symbol id="i-sparkles" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9.9 15.5A2 2 0 0 0 8.5 14.1l-6.1-1.6a.5.5 0 0 1 0-1l6.1-1.6a2 2 0 0 0 1.4-1.4l1.6-6.1a.5.5 0 0 1 1 0l1.6 6.1a2 2 0 0 0 1.4 1.4l6.1 1.6a.5.5 0 0 1 0 1l-6.1 1.6a2 2 0 0 0-1.4 1.4l-1.6 6.1a.5.5 0 0 1-1 0z"/>
+      <path d="M20 3v4"/><path d="M22 5h-4"/>
+      <path d="M4 17v2"/><path d="M5 18H3"/>
+    </symbol>
+
+    <symbol id="i-dice" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="3"/>
+      <circle cx="8"  cy="8"  r="1.1" fill="currentColor" stroke="none"/>
+      <circle cx="16" cy="8"  r="1.1" fill="currentColor" stroke="none"/>
+      <circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/>
+      <circle cx="8"  cy="16" r="1.1" fill="currentColor" stroke="none"/>
+      <circle cx="16" cy="16" r="1.1" fill="currentColor" stroke="none"/>
+    </symbol>
+
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="20 6 9 17 4 12"/>
+    </symbol>
+  </defs>
+</svg>
+
 <audio id="audioPlayer" preload="none" playsinline></audio>
 
 <!-- ================= HOME ================= -->
 <main class="view active" id="view-home">
+
+  <div class="ptr-spinner" id="ptrSpinner" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+      <path d="M21 12a9 9 0 1 1-6.2-8.6"/>
+    </svg>
+  </div>
+
   <header class="app-header">
     <img src="apes_radio1.png" class="app-logo" alt="">
     <div class="app-title-block">
@@ -1040,7 +1158,11 @@ input[type=range]::-moz-range-thumb {
   </div>
 
   <button class="lucky-card" id="luckyBtn">
-    <div class="lucky-icon">🎲</div>
+    <div class="lucky-icon">
+      <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+        <use href="#i-dice"/>
+      </svg>
+    </div>
     <div class="lucky-text">
       <div class="lucky-title">I'm Feeling Lucky</div>
       <div class="lucky-sub">Tap to play a random station</div>
@@ -1052,9 +1174,20 @@ input[type=range]::-moz-range-thumb {
     <div class="shelf-scroll" id="shelf-start"></div>
   </section>
 
+  <section class="shelf" data-shelf="recent" id="shelfRecent" hidden>
+    <div class="shelf-header">
+      <h2 class="shelf-title">Recently Played</h2>
+      <button class="shelf-see-all" id="clearRecentBtn" style="color:var(--text-dim);">Clear</button>
+    </div>
+    <div class="shelf-scroll" id="shelf-recent"></div>
+  </section>
+
   <section class="shelf" data-shelf="popular">
     <div class="shelf-header">
-      <h2 class="shelf-title">Popular 🔥</h2>
+      <h2 class="shelf-title">
+        <svg class="shelf-icon" aria-hidden="true"><use href="#i-flame"/></svg>
+        Popular
+      </h2>
       <button class="shelf-see-all" data-see-all="popular">See all</button>
     </div>
     <div class="shelf-scroll" id="shelf-popular"></div>
@@ -1062,7 +1195,10 @@ input[type=range]::-moz-range-thumb {
 
   <section class="shelf" data-shelf="trending">
     <div class="shelf-header">
-      <h2 class="shelf-title">Trending 📈</h2>
+      <h2 class="shelf-title">
+        <svg class="shelf-icon" aria-hidden="true"><use href="#i-trending"/></svg>
+        Trending
+      </h2>
       <button class="shelf-see-all" data-see-all="trending">See all</button>
     </div>
     <div class="shelf-scroll" id="shelf-trending"></div>
@@ -1070,7 +1206,10 @@ input[type=range]::-moz-range-thumb {
 
   <section class="shelf" data-shelf="discover" hidden>
     <div class="shelf-header">
-      <h2 class="shelf-title">For You 🎯</h2>
+      <h2 class="shelf-title">
+        <svg class="shelf-icon" aria-hidden="true"><use href="#i-target"/></svg>
+        For You
+      </h2>
       <button class="shelf-see-all" data-see-all="discover">See all</button>
     </div>
     <div class="shelf-scroll" id="shelf-discover"></div>
@@ -1078,7 +1217,10 @@ input[type=range]::-moz-range-thumb {
 
   <section class="shelf" data-shelf="gems">
     <div class="shelf-header">
-      <h2 class="shelf-title">Hidden Gems 💎</h2>
+      <h2 class="shelf-title">
+        <svg class="shelf-icon" aria-hidden="true"><use href="#i-gem"/></svg>
+        Hidden Gems
+      </h2>
       <button class="shelf-see-all" data-see-all="gems">See all</button>
     </div>
     <div class="shelf-scroll" id="shelf-gems"></div>
@@ -1086,7 +1228,10 @@ input[type=range]::-moz-range-thumb {
 
   <section class="shelf" data-shelf="new">
     <div class="shelf-header">
-      <h2 class="shelf-title">Recently Added 🆕</h2>
+      <h2 class="shelf-title">
+        <svg class="shelf-icon" aria-hidden="true"><use href="#i-sparkles"/></svg>
+        Recently Added
+      </h2>
       <button class="shelf-see-all" data-see-all="new">See all</button>
     </div>
     <div class="shelf-scroll" id="shelf-new"></div>
@@ -1161,8 +1306,9 @@ input[type=range]::-moz-range-thumb {
       <svg class="icon-play" viewBox="0 0 24 24" fill="currentColor">
         <path d="M8 5.14v13.72a1 1 0 0 0 1.5.86l11-6.86a1 1 0 0 0 0-1.72l-11-6.86A1 1 0 0 0 8 5.14z"/>
       </svg>
-      <svg class="icon-pause" viewBox="0 0 24 24" fill="currentColor" hidden>
-        <rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>
+      <svg class="icon-pause" viewBox="0 0 24 24" fill="currentColor">
+        <rect x="6" y="5" width="4" height="14" rx="1"/>
+        <rect x="14" y="5" width="4" height="14" rx="1"/>
       </svg>
     </button>
   </div>
@@ -1227,8 +1373,9 @@ input[type=range]::-moz-range-thumb {
       <svg class="icon-play" viewBox="0 0 24 24" fill="currentColor">
         <path d="M8 5.14v13.72a1 1 0 0 0 1.5.86l11-6.86a1 1 0 0 0 0-1.72l-11-6.86A1 1 0 0 0 8 5.14z"/>
       </svg>
-      <svg class="icon-pause" viewBox="0 0 24 24" fill="currentColor" hidden>
-        <rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>
+      <svg class="icon-pause" viewBox="0 0 24 24" fill="currentColor">
+        <rect x="6" y="5" width="4" height="14" rx="1"/>
+        <rect x="14" y="5" width="4" height="14" rx="1"/>
       </svg>
     </button>
     <button class="fp-secondary" id="fpAdd" aria-label="Add to playlist">
@@ -1334,13 +1481,14 @@ input[type=range]::-moz-range-thumb {
   const API_BASE = 'https://de1.api.radio-browser.info/json';
   const TAG_HISTORY_LIMIT = 50;
   const RECENT_SEARCHES_LIMIT = 6;
+  const RECENT_PLAYED_LIMIT = 20;
 
   const DEFAULT_LOGO = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 24 24' fill='none' stroke='%231db954' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='2' fill='%231db954'/%3E%3Cpath d='M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5'/%3E%3Cpath d='M19.1 4.9c3.9 3.9 3.9 10.2 0 14.1'/%3E%3Cpath d='M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5'/%3E%3Cpath d='M4.9 19.1C1 15.2 1 8.8 4.9 4.9'/%3E%3C/svg%3E";
 
   const GENRE_CHIPS = ['Jazz','Rock','Electronic','Hip Hop','Classical','News','Talk','80s','90s','French','Spanish','K-Pop'];
 
   /* ================================================================
-     Tiny helpers
+     Helpers
      ================================================================ */
   const $  = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -1352,7 +1500,7 @@ input[type=range]::-moz-range-thumb {
     },
     set(key, value) {
       try { localStorage.setItem(key, JSON.stringify(value)); }
-      catch { /* private mode — fail quietly */ }
+      catch { /* private mode */ }
     }
   };
 
@@ -1381,10 +1529,21 @@ input[type=range]::-moz-range-thumb {
     return new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0)));
   }
 
+  /* Toast — optionally prefixed with an SVG icon from the sprite */
   let toastTimer;
-  function toast(msg) {
+  function toast(msg, iconId) {
     const el = $('#toast');
-    el.textContent = msg;
+    el.textContent = '';
+    if (iconId) {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('class', 'toast-icon');
+      svg.setAttribute('aria-hidden', 'true');
+      const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+      use.setAttribute('href', '#' + iconId);
+      svg.append(use);
+      el.append(svg);
+    }
+    el.append(document.createTextNode(msg));
     el.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
@@ -1409,8 +1568,10 @@ input[type=range]::-moz-range-thumb {
   const fpPlayBtn    = $('#fpPlay');
 
   function setPlayIcons(playing) {
-    $$('.icon-play').forEach(el => el.hidden = playing);
-    $$('.icon-pause').forEach(el => el.hidden = !playing);
+    miniPlayBtn.classList.toggle('playing', playing);
+    fpPlayBtn.classList.toggle('playing', playing);
+    miniPlayBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+    fpPlayBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
     fullPlayer.classList.toggle('playing', playing);
   }
 
@@ -1423,7 +1584,6 @@ input[type=range]::-moz-range-thumb {
 
     currentStation = { ...station };
 
-    // Update mini + full player chrome
     miniArt.src = getLogo(station.favicon);
     miniArt.onerror = () => { miniArt.onerror = null; miniArt.src = DEFAULT_LOGO; };
     miniTitle.textContent = station.name || 'Unknown Station';
@@ -1444,6 +1604,7 @@ input[type=range]::-moz-range-thumb {
     });
 
     logPlayTag(station.tags);
+    pushRecentPlayed(station);
     updateDiscoverShelfVisibility();
     haptic(12);
   }
@@ -1467,7 +1628,7 @@ input[type=range]::-moz-range-thumb {
   }
 
   /* ================================================================
-     Bottom dock height (dynamic, used for body padding)
+     Bottom dock height
      ================================================================ */
   const bottomDock = $('#bottomDock');
   function updateDockHeight() {
@@ -1494,6 +1655,46 @@ input[type=range]::-moz-range-thumb {
   function hasTaste() { return Object.keys(store.get('tagHistory', {})).length > 0; }
 
   /* ================================================================
+     Recently played
+     ================================================================ */
+  function pushRecentPlayed(station) {
+    if (!station || !station.url) return;
+    const list = store.get('recentPlayed', []);
+    const filtered = list.filter(s => s.url !== station.url);
+    filtered.unshift({
+      name: station.name,
+      subtitle: station.subtitle,
+      url: station.url,
+      favicon: station.favicon,
+      tags: station.tags || '',
+      at: Date.now()
+    });
+    store.set('recentPlayed', filtered.slice(0, RECENT_PLAYED_LIMIT));
+    renderRecentShelf();
+  }
+
+  function renderRecentShelf() {
+    const shelf = $('#shelfRecent');
+    const container = $('#shelf-recent');
+    if (!shelf || !container) return;
+    const list = store.get('recentPlayed', []);
+    if (list.length === 0) { shelf.hidden = true; return; }
+
+    shelf.hidden = false;
+    container.innerHTML = '';
+    list.slice(0, 14).forEach(st => {
+      const s = {
+        name: st.name,
+        subtitle: st.subtitle,
+        url: st.url,
+        favicon: st.favicon,
+        tags: st.tags
+      };
+      container.append(makeShelfCard(s, () => playStation(s)));
+    });
+  }
+
+  /* ================================================================
      View switching
      ================================================================ */
   const views = {
@@ -1507,7 +1708,6 @@ input[type=range]::-moz-range-thumb {
   function showView(name) {
     if (!views[name]) return;
     if (name === activeView) {
-      // Re-tap: scroll to top (native app behaviour)
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
@@ -1698,7 +1898,7 @@ input[type=range]::-moz-range-thumb {
       });
     } catch (err) {
       if (err.name === 'AbortError') return;
-      container.innerHTML = '<span style="color:var(--text-mute);font-size:13px;padding:8px 0;">Could not load. Tap to retry.</span>';
+      container.innerHTML = '<span style="color:var(--text-mute);font-size:13px;padding:8px 0;">Could not load.</span>';
     }
   }
 
@@ -1710,19 +1910,28 @@ input[type=range]::-moz-range-thumb {
   function bootHomeShelves() {
     homeBooted = true;
 
-    // Starter favorites render instantly
     const start = $('#shelf-start');
     start.innerHTML = '';
     staticFavorites.forEach(st => {
       start.append(makeShelfCard(st, () => playStation(st)));
     });
 
-    // Everything else loads in parallel
     loadShelf('popular');
     loadShelf('trending');
     loadShelf('gems');
     loadShelf('new');
     if (hasTaste()) loadShelf('discover');
+  }
+
+  async function refreshHome() {
+    const tasks = [
+      loadShelf('popular'),
+      loadShelf('trending'),
+      loadShelf('gems'),
+      loadShelf('new')
+    ];
+    if (hasTaste()) tasks.push(loadShelf('discover'));
+    await Promise.all(tasks);
   }
 
   function updateDiscoverShelfVisibility() {
@@ -1737,10 +1946,11 @@ input[type=range]::-moz-range-thumb {
   }
 
   /* ================================================================
-     "See all" — expands shelf inline into a grid
+     "See all" — expand shelf inline
      ================================================================ */
   $$('.shelf-see-all').forEach(btn => {
     btn.addEventListener('click', () => {
+      if (btn.id === 'clearRecentBtn') return; // handled separately
       const shelf = btn.closest('.shelf');
       const expanded = shelf.classList.toggle('expanded');
       btn.textContent = expanded ? 'Collapse' : 'See all';
@@ -1855,7 +2065,7 @@ input[type=range]::-moz-range-thumb {
 
       searchList.innerHTML = '';
       if (stations.length === 0) {
-        searchList.innerHTML = '<div class="empty-state">No stations found for "' + query.replace(/</g,'&lt;') + '"</div>';
+        searchList.innerHTML = '<div class="empty-state">No stations found.</div>';
         return;
       }
 
@@ -1894,7 +2104,7 @@ input[type=range]::-moz-range-thumb {
   });
 
   /* ================================================================
-     Playlists (library)
+     Playlists
      ================================================================ */
   let categories = store.get('categories', {});
   let activeCategory = null;
@@ -1966,7 +2176,7 @@ input[type=range]::-moz-range-thumb {
     saveCategories();
     renderLibrary(catName);
     haptic(10);
-    toast('Saved to "' + catName + '"');
+    toast('Saved to "' + catName + '"', 'i-check');
   }
 
   deletePlaylistBtn.addEventListener('click', () => {
@@ -1979,7 +2189,7 @@ input[type=range]::-moz-range-thumb {
   });
 
   /* ================================================================
-     Sheets (modal layer)
+     Sheets
      ================================================================ */
   let lastFocused = null;
 
@@ -2005,7 +2215,6 @@ input[type=range]::-moz-range-thumb {
     if (e.key === 'Escape') { closeSheets(); closeFullPlayer(); }
   });
 
-  /* ---- Playlist picker ---- */
   function openPlaylistSheet() {
     if (!currentStation) { toast('Play a station first'); return; }
 
@@ -2040,7 +2249,6 @@ input[type=range]::-moz-range-thumb {
     if (e.key === 'Enter') $('#createPlaylistBtn').click();
   });
 
-  /* ---- Station actions ---- */
   let sheetContext = { category: null, index: null };
 
   function openStationSheet(categoryName, index) {
@@ -2087,7 +2295,7 @@ input[type=range]::-moz-range-thumb {
     if (name && st) { st.name = name; st.subtitle = sub; saveCategories(); }
     renderCategoryStations(category);
     closeSheets();
-    toast('Updated');
+    toast('Updated', 'i-check');
   });
 
   /* ================================================================
@@ -2098,12 +2306,14 @@ input[type=range]::-moz-range-thumb {
     fullPlayer.classList.add('open');
     fullPlayer.setAttribute('aria-hidden', 'false');
     document.body.classList.add('player-open');
+    applyNowPlayingTint(currentStation);
     haptic(8);
   }
   function closeFullPlayer() {
     fullPlayer.classList.remove('open');
     fullPlayer.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('player-open');
+    resetTint();
   }
 
   miniPlayer.addEventListener('click', e => {
@@ -2118,10 +2328,11 @@ input[type=range]::-moz-range-thumb {
   $('#fpAdd').addEventListener('click', openPlaylistSheet);
   $('#fpMore').addEventListener('click', () => {
     if (!currentStation) return;
-    // Reuse the station sheet for the currently playing station
-    const temp = { name: currentStation.name, subtitle: currentStation.subtitle };
-    $('#stationSheetTitle').textContent = temp.name || 'Station';
+    $('#stationSheetTitle').textContent = currentStation.name || 'Station';
     sheetContext = { category: null, index: null };
+    // Disable the edit/remove buttons since there's no playlist context
+    $('#stationEditBtn').style.display = 'none';
+    $('#stationRemoveBtn').style.display = 'none';
     openSheet('sheetStation');
   });
 
@@ -2190,14 +2401,14 @@ input[type=range]::-moz-range-thumb {
     }
     try {
       await navigator.clipboard.writeText(link);
-      toast('Link copied');
+      toast('Link copied', 'i-check');
     } catch {
       window.prompt('Copy this link:', link);
     }
   }
 
   /* ================================================================
-     Shared station (from ?s= param)
+     Shared station
      ================================================================ */
   function checkSharedStation() {
     const raw = new URLSearchParams(location.search).get('s');
@@ -2226,7 +2437,6 @@ input[type=range]::-moz-range-thumb {
     card.style.textAlign = 'left';
     content.append(card);
 
-    // Reflow the card to a horizontal layout for the banner
     const art = card.querySelector('.shelf-art');
     if (art) { art.style.width = '56px'; art.style.flexShrink = '0'; }
     const text = document.createElement('div');
@@ -2283,7 +2493,7 @@ input[type=range]::-moz-range-thumb {
   window.addEventListener('appinstalled', () => {
     deferredPrompt = null;
     installBtn.hidden = true;
-    toast('Installed 🎉');
+    toast('Installed', 'i-check');
   });
 
   installBtn.addEventListener('click', async () => {
@@ -2311,6 +2521,222 @@ input[type=range]::-moz-range-thumb {
   })();
 
   /* ================================================================
+     Dominant colour extraction
+     ================================================================ */
+  const FALLBACK_PALETTE = [
+    [31, 111, 74],
+    [111, 47, 79],
+    [47, 71, 111],
+    [111, 79, 31],
+    [79, 47, 111],
+    [47, 111, 100],
+    [95, 55, 55],
+    [55, 95, 55],
+  ];
+
+  function hashToPalette(str) {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+    return FALLBACK_PALETTE[Math.abs(h) % FALLBACK_PALETTE.length];
+  }
+
+  function tryExtractColor(url) {
+    return new Promise(resolve => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.referrerPolicy = 'no-referrer';
+
+      const timer = setTimeout(() => { img.src = ''; resolve(null); }, 3500);
+
+      img.onload = () => {
+        clearTimeout(timer);
+        try {
+          const SIZE = 32;
+          const canvas = document.createElement('canvas');
+          canvas.width = canvas.height = SIZE;
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          ctx.drawImage(img, 0, 0, SIZE, SIZE);
+          const data = ctx.getImageData(0, 0, SIZE, SIZE).data;
+          resolve(pickDominant(data));
+        } catch {
+          resolve(null);
+        }
+      };
+      img.onerror = () => { clearTimeout(timer); resolve(null); };
+      img.src = url;
+    });
+  }
+
+  async function extractDominantColor(url) {
+    if (!url || url.startsWith('data:')) return null;
+
+    let color = await tryExtractColor(url);
+    if (color) return color;
+
+    const proxied = 'https://images.weserv.nl/?url=' +
+      encodeURIComponent(url.replace(/^https?:\/\//, '')) +
+      '&w=64&h=64&fit=cover&output=png';
+    color = await tryExtractColor(proxied);
+    return color;
+  }
+
+  function pickDominant(data) {
+    const bins = new Map();
+
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] < 128) continue;
+
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      const v = max / 255;
+      const s = max === 0 ? 0 : (max - min) / max;
+
+      if (v < 0.18 || s < 0.12) continue;
+
+      const key = (r >> 4) + ',' + (g >> 4) + ',' + (b >> 4);
+      const w = s * v;
+      const bin = bins.get(key) || { r: 0, g: 0, b: 0, w: 0 };
+      bin.r += r * w;
+      bin.g += g * w;
+      bin.b += b * w;
+      bin.w += w;
+      bins.set(key, bin);
+    }
+
+    if (bins.size === 0) return null;
+
+    let best = null;
+    bins.forEach(bin => { if (!best || bin.w > best.w) best = bin; });
+    return {
+      r: Math.round(best.r / best.w),
+      g: Math.round(best.g / best.w),
+      b: Math.round(best.b / best.w)
+    };
+  }
+
+  function darken(rgb, amount) {
+    return {
+      r: Math.round(rgb.r * amount),
+      g: Math.round(rgb.g * amount),
+      b: Math.round(rgb.b * amount)
+    };
+  }
+
+  let tintToken = 0;
+
+  async function applyNowPlayingTint(station) {
+    const token = ++tintToken;
+    const accent = await extractDominantColor(station.favicon)
+      || hashToPalette(station.name || 'x');
+
+    if (token !== tintToken) return;
+
+    const top = darken(accent, 0.28);
+    fullPlayer.style.setProperty('--np-top-rgb', `${top.r}, ${top.g}, ${top.b}`);
+    fullPlayer.style.setProperty('--np-accent-rgb', `${accent.r}, ${accent.g}, ${accent.b}`);
+
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', `rgb(${top.r}, ${top.g}, ${top.b})`);
+  }
+
+  function resetTint() {
+    tintToken++;
+    fullPlayer.style.removeProperty('--np-top-rgb');
+    fullPlayer.style.removeProperty('--np-accent-rgb');
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', '#0a0a0a');
+  }
+
+  /* ================================================================
+     Pull to refresh (Home only)
+     ================================================================ */
+  const ptrSpinner = $('#ptrSpinner');
+  const homeView = $('#view-home');
+  const PTR_TRIGGER = 72;
+  const PTR_MAX = 120;
+
+  let ptrStartY = null;
+  let ptrDelta = 0;
+  let ptrRefreshing = false;
+
+  if (ptrSpinner && homeView) {
+    homeView.addEventListener('touchstart', e => {
+      if (ptrRefreshing) return;
+      if (window.scrollY > 0) return;
+      ptrStartY = e.touches[0].clientY;
+      ptrDelta = 0;
+      ptrSpinner.style.transition = 'none';
+    }, { passive: true });
+
+    homeView.addEventListener('touchmove', e => {
+      if (ptrStartY == null || ptrRefreshing) return;
+      if (window.scrollY > 0) { ptrStartY = null; return; }
+
+      const dy = e.touches[0].clientY - ptrStartY;
+      if (dy <= 0) {
+        ptrDelta = 0;
+        ptrSpinner.style.opacity = 0;
+        return;
+      }
+
+      ptrDelta = Math.min(dy * 0.5, PTR_MAX);
+      const progress = Math.min(ptrDelta / PTR_TRIGGER, 1);
+
+      ptrSpinner.style.transform = `translate(-50%, ${-60 + progress * 60}px) scale(${0.5 + progress * 0.5})`;
+      ptrSpinner.style.opacity = progress;
+      ptrSpinner.querySelector('svg').style.transform = `rotate(${progress * 180}deg)`;
+    }, { passive: true });
+
+    homeView.addEventListener('touchend', async () => {
+      if (ptrStartY == null) return;
+      const shouldRefresh = ptrDelta >= PTR_TRIGGER;
+      ptrStartY = null;
+      ptrDelta = 0;
+      ptrSpinner.style.transition = '';
+
+      if (!shouldRefresh) {
+        ptrSpinner.style.transform = '';
+        ptrSpinner.style.opacity = '';
+        ptrSpinner.querySelector('svg').style.transform = '';
+        return;
+      }
+
+      ptrRefreshing = true;
+      ptrSpinner.style.transform = 'translate(-50%, 0) scale(1)';
+      ptrSpinner.style.opacity = 1;
+      ptrSpinner.querySelector('svg').style.transform = '';
+      ptrSpinner.classList.add('refreshing');
+      haptic(10);
+
+      try {
+        await refreshHome();
+        toast('Updated', 'i-check');
+      } finally {
+        setTimeout(() => {
+          ptrSpinner.classList.remove('refreshing');
+          ptrSpinner.style.opacity = 0;
+          ptrSpinner.style.transform = '';
+          ptrRefreshing = false;
+        }, 550);
+      }
+    });
+  }
+
+  /* ================================================================
+     Recently played — clear button
+     ================================================================ */
+  const clearRecentBtn = $('#clearRecentBtn');
+  if (clearRecentBtn) {
+    clearRecentBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      if (!confirm('Clear your listening history?')) return;
+      store.set('recentPlayed', []);
+      renderRecentShelf();
+      toast('History cleared');
+    });
+  }
+
+  /* ================================================================
      Service worker
      ================================================================ */
   if ('serviceWorker' in navigator) {
@@ -2323,14 +2749,13 @@ input[type=range]::-moz-range-thumb {
      Init
      ================================================================ */
   renderRecentSearches();
+  renderRecentShelf();
   renderLibrary();
   checkSharedStation();
   updateDockHeight();
 
-  // Boot home shelves immediately (they're the entry view)
   bootHomeShelves();
 
-  // Global keyboard shortcut: space = play/pause
   document.addEventListener('keydown', e => {
     if (e.target.matches('input, textarea')) return;
     if (e.key === ' ' && audio.src) { e.preventDefault(); togglePlay(); }
