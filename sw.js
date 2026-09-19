@@ -1,4 +1,4 @@
-const CACHE = 'apes-radio-v4';
+const CACHE = 'apes-radio-v5';
 const SHELL = [
   './',
   './index.html',
