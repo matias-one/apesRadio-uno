@@ -641,24 +641,62 @@ input {
   position: fixed;
   inset: 0;
   z-index: 500;
-  background: linear-gradient(180deg,
-    rgb(var(--np-top-rgb, 28, 42, 31)) 0%,
-    #0a0a0a 55%);
-  transition: background .6s ease;
+  background: #0a0a0a; /* solid base — frosted layers sit on top */
   display: flex;
   flex-direction: column;
   transform: translateY(100%);
   visibility: hidden;
-  transition: transform .32s cubic-bezier(.32,.72,0,1), visibility 0s .32s, background .6s ease;
+  transition: transform .32s cubic-bezier(.32,.72,0,1), visibility 0s .32s;
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
   overscroll-behavior: contain;
+  overflow: hidden; /* keep the blurred layer inside */
 }
 
 .full-player.open {
   transform: translateY(0);
   visibility: visible;
-  transition: transform .32s cubic-bezier(.32,.72,0,1), visibility 0s, background .6s ease;
+  transition: transform .32s cubic-bezier(.32,.72,0,1), visibility 0s;
+}
+
+/* --- Frosted backdrop layer --- */
+.fp-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* The station's artwork, blown up and blurred. Transparent pixels
+   reveal the dark base underneath — reads as frost. */
+.fp-bg-img {
+  position: absolute;
+  inset: -25%; /* overscan so blur edges don't clip */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter: blur(64px) saturate(1.7) brightness(0.75);
+  opacity: 0.85;
+  transition: background-image .5s, opacity .5s;
+}
+
+/* Color tint over the blur. Top carries the extracted accent;
+   bottom fades to near-black so text stays legible. */
+.fp-bg-tint {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg,
+    rgba(var(--np-top-rgb, 10, 10, 10), 0.55) 0%,
+    rgba(10, 10, 10, 0.9) 60%,
+    rgba(10, 10, 10, 0.97) 100%);
+  transition: background .6s ease;
+}
+
+/* Every direct child except the backdrop sits above it */
+.full-player > *:not(.fp-bg) {
+  position: relative;
+  z-index: 1;
 }
 
 .fp-drag-zone {
@@ -1337,6 +1375,11 @@ input[type=range]::-moz-range-thumb {
 
 <!-- ================= FULL-SCREEN PLAYER ================= -->
 <div class="full-player" id="fullPlayer">
+  <div class="fp-bg" aria-hidden="true">
+    <div class="fp-bg-img" id="fpBgImg"></div>
+    <div class="fp-bg-tint"></div>
+  </div>
+
   <div class="fp-drag-zone" id="fpDragZone"><div class="fp-drag-handle"></div></div>
 
   <div class="fp-header">
@@ -1566,6 +1609,7 @@ input[type=range]::-moz-range-thumb {
   const fpTitle      = $('#fpTitle');
   const fpSub        = $('#fpSub');
   const fpPlayBtn    = $('#fpPlay');
+  const fpBgImg      = $('#fpBgImg');
 
   function setPlayIcons(playing) {
     miniPlayBtn.classList.toggle('playing', playing);
@@ -1950,7 +1994,7 @@ input[type=range]::-moz-range-thumb {
      ================================================================ */
   $$('.shelf-see-all').forEach(btn => {
     btn.addEventListener('click', () => {
-      if (btn.id === 'clearRecentBtn') return; // handled separately
+      if (btn.id === 'clearRecentBtn') return;
       const shelf = btn.closest('.shelf');
       const expanded = shelf.classList.toggle('expanded');
       btn.textContent = expanded ? 'Collapse' : 'See all';
@@ -2255,13 +2299,20 @@ input[type=range]::-moz-range-thumb {
     sheetContext = { category: categoryName, index };
     const st = categories[categoryName][index];
     $('#stationSheetTitle').textContent = st.name || 'Station';
+    $('#stationEditBtn').style.display = '';
+    $('#stationRemoveBtn').style.display = '';
     openSheet('sheetStation');
   }
 
   $('#stationShareBtn').addEventListener('click', () => {
     const { category, index } = sheetContext;
-    if (category == null) return;
-    const st = categories[category][index];
+    let st;
+    if (category == null) {
+      st = currentStation;
+    } else {
+      st = categories[category][index];
+    }
+    if (!st) return;
     closeSheets();
     shareStation(st);
   });
@@ -2330,7 +2381,7 @@ input[type=range]::-moz-range-thumb {
     if (!currentStation) return;
     $('#stationSheetTitle').textContent = currentStation.name || 'Station';
     sheetContext = { category: null, index: null };
-    // Disable the edit/remove buttons since there's no playlist context
+    // No playlist context — hide the edit/remove rows, keep Share
     $('#stationEditBtn').style.display = 'none';
     $('#stationRemoveBtn').style.display = 'none';
     openSheet('sheetStation');
@@ -2591,7 +2642,10 @@ input[type=range]::-moz-range-thumb {
       const v = max / 255;
       const s = max === 0 ? 0 : (max - min) / max;
 
+      // Skip near-black and grey/white — usually logos/padding, not the color
       if (v < 0.18 || s < 0.12) continue;
+      // Skip near-whites (light, low-saturation) so white logos don't win
+      if (v > 0.9 && s < 0.25) continue;
 
       const key = (r >> 4) + ',' + (g >> 4) + ',' + (b >> 4);
       const w = s * v;
@@ -2626,12 +2680,27 @@ input[type=range]::-moz-range-thumb {
 
   async function applyNowPlayingTint(station) {
     const token = ++tintToken;
-    const accent = await extractDominantColor(station.favicon)
-      || hashToPalette(station.name || 'x');
+
+    // 1) Set the frosted backdrop image immediately — no waiting on extraction.
+    //    Escape any quotes in the URL so background-image doesn't break.
+    const safeUrl = (station.favicon || '').replace(/"/g, '%22');
+    fpBgImg.style.backgroundImage = safeUrl ? `url("${safeUrl}")` : 'none';
+
+    // 2) Extract a color in the background.
+    let accent = await extractDominantColor(station.favicon);
+
+    // Discard near-white results — a white tint reads as a bug, and
+    // logo whites almost never represent the station's actual color.
+    if (accent && accent.r > 200 && accent.g > 200 && accent.b > 200) {
+      accent = null;
+    }
+    if (!accent) accent = hashToPalette(station.name || 'x');
 
     if (token !== tintToken) return;
 
-    const top = darken(accent, 0.28);
+    // Darken more than the old version — the accent sits over a bright
+    // blurred image now, so it needs more headroom for text legibility.
+    const top = darken(accent, 0.42);
     fullPlayer.style.setProperty('--np-top-rgb', `${top.r}, ${top.g}, ${top.b}`);
     fullPlayer.style.setProperty('--np-accent-rgb', `${accent.r}, ${accent.g}, ${accent.b}`);
 
@@ -2641,6 +2710,7 @@ input[type=range]::-moz-range-thumb {
 
   function resetTint() {
     tintToken++;
+    fpBgImg.style.backgroundImage = '';
     fullPlayer.style.removeProperty('--np-top-rgb');
     fullPlayer.style.removeProperty('--np-accent-rgb');
     const meta = document.querySelector('meta[name="theme-color"]');
